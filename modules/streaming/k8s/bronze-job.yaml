@@ -8,6 +8,31 @@ spec:
   mode: cluster
   image: spark-codelabuk:latest
   sparkVersion: "3.5.3"
-  mainClass: com.labuk.streaming.Orches
-  mainApplicationFile: s3a://spark-jars/labuk-streaming.jar
+  mainClass: org.codelabuk.streaming.OrchestratorMain
+  mainApplicationFile: s3a://spark-jobs/jobs/labuk-streaming.jar
   arguments: [ "bronze" ]
+
+  sparkConf:
+    spark.sql.catalog.iceberg: org.apache.iceberg.spark.SparkCatalog
+    spark.sql.catalog.iceberg.type: hive
+    spark.sql.catalog.iceberg.uri: thrift://hive-metastore.metastore.svc.cluster.local:9083
+    spark.sql.catalog.iceberg.warehouse: s3a://warehouse/
+    spark.sql.extensions: org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions
+    spark.hadoop.fs.s3a.endpoint: http://minio.minio.svc.cluster.local:9000
+    spark.hadoop.fs.s3a.access.key: sparkadmin
+    spark.hadoop.fs.s3a.secret.key: sparkadmin123
+    spark.hadoop.fs.s3a.path.style.access: "true"
+    spark.hadoop.fs.s3a.connection.ssl.enabled: "false"
+
+  driver:
+    cores: 1
+    memory: "1g"
+    serviceAccount: spark
+
+  executor:
+    cores: 1
+    instances: 2
+    memory: "1g"
+
+  restartPolicy:
+    type: Never

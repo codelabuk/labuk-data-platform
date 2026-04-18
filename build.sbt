@@ -1,6 +1,6 @@
 ThisBuild / organization := "org.codelabuk"
 ThisBuild / version      := "0.1.0-SNAPSHOT"
-ThisBuild / scalaVersion := "2.13.12"
+ThisBuild / scalaVersion := "2.12.18"
 
 // Assembly merge strategy
 ThisBuild / assemblyMergeStrategy := {
@@ -22,6 +22,7 @@ lazy val common = (project in file("modules/common"))
     name := "labuk-common",
     libraryDependencies ++= Seq(
       "com.typesafe" % "config" % "1.4.3",
+      "org.json4s" %% "json4s-jackson" % "4.0.7" ,
       "org.scalatest" %% "scalatest" % "3.2.17" % Test
     )
   )
@@ -32,7 +33,7 @@ lazy val streaming = (project in file("modules/streaming"))
     name := "labuk-streaming",
     libraryDependencies ++= Seq(
       "org.apache.spark" %% "spark-sql" % "3.5.3" % Provided,
-      "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.5.3" % Provided,
+      "org.apache.spark" %% "spark-sql-kafka-0-10" % "3.5.3",
       "org.apache.iceberg" %% "iceberg-spark-runtime-3.5" % "1.5.0" % Provided
     ),
     assembly / assemblyJarName := "labuk-streaming.jar",
