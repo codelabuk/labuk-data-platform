@@ -1,0 +1,25 @@
+# SBT
+target/
+project/target/
+project/project/
+.bsp/
+
+# IntelliJ
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Scala
+*.class
+*.log
+.cache
+.history
+
+# Assembly
+*.jar
+
+# OS
+.DS_Store
+Thumbs.db
