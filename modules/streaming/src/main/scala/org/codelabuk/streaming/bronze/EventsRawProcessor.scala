@@ -20,8 +20,8 @@ object EventsRawProcessor {
         "CAST(value AS STRING) as event_json",
         "topic as kafka_topic",
         "partition as kafka_partition",
-        "offset s kafka_offset",
-        "timestamp ad kafka_timestamp"
+        "offset as kafka_offset",
+        "timestamp as kafka_timestamp"
       )
       .withColumn("ingestion_timestamp", current_timestamp())
       .withColumn("partition_date", to_date(col("kafka_timestamp")))
