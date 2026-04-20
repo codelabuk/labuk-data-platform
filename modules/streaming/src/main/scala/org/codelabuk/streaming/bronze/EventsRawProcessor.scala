@@ -29,6 +29,7 @@ object EventsRawProcessor {
     val query = bronzeDF.writeStream
       .foreachBatch(writeToBronze _)
       .trigger(Trigger.ProcessingTime("10 seconds"))
+      .option("checkpointLocation", "s3a://checkpoints/bronze-raw-events")
       .option("path", "iceberg.bronze.raw_events")
       .option("fanout-enabled", "true")
       .start()
@@ -40,9 +41,9 @@ object EventsRawProcessor {
   }
 
   private def writeToBronze(batchDF: DataFrame, batchId: Long): Unit = {
-    val recordCount = batchDF.count()
-    if (recordCount > 0) {
-      println(s"[Bronze] Batch $batchId: Processing $recordCount records")
+
+    if (!batchDF.isEmpty) {
+      println(s"[Bronze] Batch $batchId: Processing  records")
       batchDF.writeTo("iceberg.bronze.raw_events")
         .option("fanout-enabled", "true")
         .append()
