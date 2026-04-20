@@ -1,6 +1,6 @@
 package org.codelabuk.streaming.bronze
 
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{col, current_timestamp, to_date}
 import org.apache.spark.sql.streaming.Trigger
 
@@ -27,8 +27,7 @@ object EventsRawProcessor {
       .withColumn("partition_date", to_date(col("kafka_timestamp")))
 
     val query = bronzeDF.writeStream
-      .format("iceberg")
-      .outputMode("append")
+      .foreachBatch(writeToBronze _)
       .trigger(Trigger.ProcessingTime("10 seconds"))
       .option("path", "iceberg.bronze.raw_events")
       .option("fanout-enabled", "true")
@@ -38,6 +37,18 @@ object EventsRawProcessor {
     println("[Bronze] Checkpoint location: s3a://checkpoints/bronze-raw-events")
     println("[Bronze] Micro-batches every 10 seconds")
     query.awaitTermination()
+  }
+
+  private def writeToBronze(batchDF: DataFrame, batchId: Long): Unit = {
+    val recordCount = batchDF.count()
+    if (recordCount > 0) {
+      println(s"[Bronze] Batch $batchId: Processing $recordCount records")
+      batchDF.writeTo("iceberg.bronze.raw_events")
+        .option("fanout-enabled", "true")
+        .append()
+    } else {
+      println(s"[Bronze] Batch $batchId: Empty batch, skipping")
+    }
   }
 
 }

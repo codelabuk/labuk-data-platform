@@ -26,13 +26,13 @@ spec:
 
   driver:
     cores: 1
-    memory: "1g"
+    memory: "512m"
     serviceAccount: spark
 
   executor:
     cores: 1
-    instances: 2
-    memory: "1g"
+    instances: 1
+    memory: "512m"
 
   restartPolicy:
     type: Never
