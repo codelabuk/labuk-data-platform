@@ -1,0 +1,103 @@
+@startuml
+title Real-Time Data Platform Architecture - Labuk Platform
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+
+' =========================
+' Event Sources Layer
+' =========================
+package "Event Sources Layer" {
+
+  component "EventGenerator\n(Scala + ZIO)\n\n- ZIO Streams\n- Rate limiting\n- Backpressure" as EG #LightBlue
+
+  component "External APIs\n(Webhooks)\n\n- HTTP4s server\n- Cats Effect\n- JSON parsing" as API #LightBlue
+}
+
+' =========================
+' Kafka Event Bus
+' =========================
+component "Kafka (Event Bus)\n\nTopics:\n• raw-events\n• validated-events\n• enriched-events\n• alerts-topic" as KAFKA #Orange
+
+EG --> KAFKA : publishes JSON
+API --> KAFKA : publishes events
+
+' =========================
+' Real-Time Processing Path
+' =========================
+package "Real-Time Processing (Low Latency)" #LightGreen {
+
+  component "Pekko Streams\nProcessor\n\n• Parse JSON\n• Validate schema\n• Enrich events\n• Filter spam\n\nLatency: <100ms" as PEKKO
+
+  component "Kafka Streams\nAggregator\n\n• Windowing (1min)\n• Stateful agg\n• KTables\n• Interactive queries\n\nLatency: ~1s" as KSTREAM
+
+  database "Redis / RocksDB\n(State Store)\n\n• User aggregates\n• Real-time metrics" as STATE
+}
+
+' =========================
+' Batch Archive Path
+' =========================
+package "Archive & Batch Processing" #LightYellow {
+
+  component "Spark Streaming\n(Bronze Layer)\n\nCONSUMES: raw-events\nWRITES: Iceberg bronze.*\n\nPurpose:\n• Immutable archive\n• Audit trail\n• Compliance" as BRONZE
+
+  database "Iceberg Bronze\n(MinIO S3)\n\nbronze.raw_events" as ICEBERG_BRONZE
+}
+
+KAFKA --> PEKKO : consume\nraw-events
+KAFKA --> BRONZE : consume\nraw-events
+
+PEKKO --> KAFKA : produce\nvalidated-events
+PEKKO --> KSTREAM : validated events
+KSTREAM --> STATE : materialize
+
+BRONZE --> ICEBERG_BRONZE : write Parquet
+
+' =========================
+' Complex Event Processing
+' =========================
+component "Apache Flink\n(CEP Engine)\n\n• Fraud detection\n• Session tracking\n• A/B assignment\n• Anomaly detection\n\nLatency: ~5s\n\nOutputs:\n• alerts-topic\n• flink.events (Iceberg)" as FLINK #Pink
+
+KAFKA --> FLINK : consume\nvalidated-events
+FLINK --> KAFKA : produce\nalerts-topic
+
+' =========================
+' Silver Layer
+' =========================
+component "Spark Streaming\n(Silver Layer)\n\nREADS:\n• Kafka validated-events (primary)\n• Iceberg bronze.* (backfill)\n\nWRITES:\n• Iceberg silver.*\n\nTransforms:\n• JSON parsing\n• Schema enforcement\n• Joins with dimensions\n\nLatency: 10-60s" as SILVER #LightCyan
+
+database "Iceberg Silver\n(MinIO S3)\n\nsilver.parsed_events\nsilver.user_events\nsilver.transactions" as ICEBERG_SILVER
+
+KAFKA --> SILVER : primary source\n(validated-events)
+ICEBERG_BRONZE --> SILVER : backfill only\n(batch reprocessing)
+
+SILVER --> ICEBERG_SILVER : write Parquet
+
+' =========================
+' Gold Layer
+' =========================
+component "Spark Batch\n(Gold Layer)\n\nREADS: Iceberg silver.*\nWRITES: Iceberg gold.*\n\nTransforms:\n• Daily aggregations\n• User metrics\n• ML features\n• Business KPIs" as GOLD #LightGray
+
+database "Iceberg Gold\n(MinIO S3)\n\ngold.daily_revenue\ngold.user_activity\ngold.fraud_scores" as ICEBERG_GOLD
+
+ICEBERG_SILVER --> GOLD : batch read
+GOLD --> ICEBERG_GOLD : write Parquet
+
+' =========================
+' Serving Layer
+' =========================
+component "Arrow Flight DaaS\n(Serving Layer)\n\nScala + ZIO + gRPC\n\nEndpoints:\n• /bronze/* (raw archive)\n• /silver/* (parsed events)\n• /gold/* (aggregates)\n• /realtime/* (Redis state)\n\nProtocol: Arrow Flight\nLatency: <10ms" as SERVE #Violet
+
+ICEBERG_BRONZE --> SERVE : query historical
+ICEBERG_SILVER --> SERVE : query parsed
+ICEBERG_GOLD --> SERVE : query aggregates
+STATE --> SERVE : real-time state
+
+note right of SERVE
+  Zero-copy columnar transfers
+  Serves both batch (Iceberg)
+  and real-time (Redis) data
+end note
+
+@enduml
