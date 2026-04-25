@@ -1,0 +1,81 @@
+@startuml
+title Labuk Data Data Platform Architecture
+
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+' =========================
+' Event Sources Layer
+' =========================
+package "Event Sources Layer" {
+
+  component "EventGenerator\n(Scala + ZIO)\n\n- ZIO Streams\n- Rate limiting\n- Backpressure" as EG
+
+  component "External APIs\n(Webhooks)\n\n- HTTP4s server\n- Cats Effect\n- JSON parsing" as API
+}
+
+' =========================
+' Kafka
+' =========================
+component "Kafka (Event Bus)\nTopics:\n- raw-events\n- validated-events\n- enriched-events" as KAFKA
+
+EG --> KAFKA : publishes
+API --> KAFKA : publishes
+
+' =========================
+' Real-Time Processing
+' =========================
+package "Real-Time Processing (Low Latency Path)" {
+
+  component "Pekko Streams Processor\n\n- Parse JSON\n- Validate\n- Enrich\n- Filter spam\n\nLatency: < 100ms" as PEKKO
+
+  component "Kafka Streams Aggregator\n\n- Windowing\n- Stateful agg\n- KTables\n\nLatency: ~1s" as KSTREAM
+
+  component "Redis / RocksDB\n(State Store)" as STATE
+
+  PEKKO --> KSTREAM : publishes
+  KSTREAM --> STATE : state store
+}
+
+' =========================
+' Batch / Archive
+' =========================
+package "Archive & Batch Processing (High Throughput Path)" {
+
+  component "Spark Streaming (Bronze)\n\nCONSUMES: raw-events\nWRITES: Iceberg bronze.*\n\nPurpose: Immutable archive" as BRONZE
+}
+
+KAFKA --> PEKKO
+KAFKA --> BRONZE
+
+' =========================
+' Flink CEP
+' =========================
+component "Apache Flink (CEP)\n\nUse Cases:\n- Fraud detection\n- Session tracking\n- A/B assignment\n- Anomaly detection\n\nLatency: ~5s\n\nOutputs:\n- Kafka (alerts-topic)\n- Iceberg (flink.events)" as FLINK
+
+KAFKA --> FLINK : validated events
+
+' =========================
+' Silver Layer
+' =========================
+component "Spark Streaming (Silver Layer)\n\nREADS:\n- Kafka validated-events\n- Iceberg bronze.*\n\nWRITES:\n- Iceberg silver.*\n\nLatency: 10-60s" as SILVER
+
+FLINK --> SILVER
+BRONZE --> SILVER
+
+' =========================
+' Gold Layer
+' =========================
+component "Spark Batch (Gold Layer)\n\nREADS: Iceberg silver.*\nWRITES: Iceberg gold.*\n\nPurpose:\n- Aggregations\n- ML features" as GOLD
+
+SILVER --> GOLD
+
+' =========================
+' Serving Layer
+' =========================
+component "Arrow Flight DaaS (Serving Layer)\n(Scala + ZIO + gRPC)\n\nServes:\n- Iceberg tables\n- Redis state" as SERVE
+
+GOLD --> SERVE
+STATE --> SERVE
+
+@enduml
