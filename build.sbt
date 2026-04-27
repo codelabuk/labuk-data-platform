@@ -10,13 +10,13 @@ ThisBuild / assemblyMergeStrategy := {
 }
 
 lazy val root = (project in file("."))
-  .aggregate(common, streaming)
+  .aggregate(common, producer, streaming)
   .settings(
     name := "labuk-data-platform",
     publish / skip := true
   )
 
-// Common module
+// Common module for spark jobs
 lazy val common = (project in file("modules/common"))
   .settings(
     name := "labuk-common",
@@ -26,6 +26,21 @@ lazy val common = (project in file("modules/common"))
       "org.scalatest" %% "scalatest" % "3.2.17" % Test
     )
   )
+
+lazy val producer = (project in file("modules/producer"))
+  .settings(
+    name := "labuk-producer",
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio" % "2.0.21",
+      "dev.zio" %% "zio-streams" % "2.0.21",
+      "dev.zio" %% "zio-json" % "0.6.2",
+      "org.apache.kafka" % "kafka-clients" % "3.6.0"
+
+    ),
+    assembly / assemblyJarName := "labuk-producer.jar",
+    assembly / mainClass := Some("org.codelabuk.producer.EventGenerator")
+  )
+
 
 lazy val streaming = (project in file("modules/streaming"))
   .dependsOn(common)
@@ -37,5 +52,5 @@ lazy val streaming = (project in file("modules/streaming"))
       "org.apache.iceberg" %% "iceberg-spark-runtime-3.5" % "1.5.0" % Provided
     ),
     assembly / assemblyJarName := "labuk-streaming.jar",
-    assembly / mainClass := Some("org.labuk.streaming.Main")  // Fixed package name
+    assembly / mainClass := Some("org.codelabuk.streaming.OrchestratorMain")
   )
