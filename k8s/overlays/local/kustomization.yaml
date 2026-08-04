@@ -3,8 +3,9 @@ kind: Kustomization
 
 resources:
 - ../../base/namespaces
-- ../../base/minio
-- ../../base/kafka
-- ../../base/metastore
-- ../../base/spark
 - ../../base/rbac
+- ../../base/minio
+- ../../base/metastore
+- ../../base/kafka
+- ../../base/spark
+- ../../base/ingress-controller/driver-ingress-controller

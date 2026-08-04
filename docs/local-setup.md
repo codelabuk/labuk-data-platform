@@ -46,26 +46,27 @@ docker version
 
 ```
 1. Namespaces
-2. NGINX Ingress Controller      (Helm)
-3. Strimzi Operator              (kubectl apply)
-4. Spark Operator                (Helm)
-5. MinIO
-6. PostgreSQL
-7. Hive Metastore
-8. Kafka Cluster (KRaft)
-9. Kafka Topics
-10. Spark History Server
-11. Spark Dashboard
-12. Driver Ingress Controller    (CronJob + ConfigMap + RBAC)
-13. MinIO Buckets                (post-install)
+2. RBAC
+3. NGINX Ingress Controller      (Helm)
+4. Strimzi Operator              (kubectl apply)
+5. Spark Operator                (Helm)
+6. MinIO
+7. PostgreSQL
+8. Hive Metastore
+9. Kafka Cluster + Topics (KRaft)
+10. Spark (config, history server, dashboard)
+11. Driver Ingress Controller    (CronJob + ConfigMap + RBAC)
+12. MinIO Buckets                (post-install)
 ```
+
+All steps below are run for you by `scripts/bootstrap-local.sh` — the manual commands are shown for reference/troubleshooting.
 
 ---
 
 ## Step 1 — Namespaces
 
 ```bash
-kubectl apply -f k8s/base/namespaces/namespaces.yaml
+kubectl apply -k k8s/base/namespaces
 ```
 
 Namespaces created:
@@ -73,9 +74,9 @@ Namespaces created:
 - `minio`
 - `metastore`
 - `spark`
-- `spark-operator`
 - `spark-platform`
-- `ingress-nginx`
+
+(`ingress-nginx` and `spark-operator` are created separately by their Helm installs via `--create-namespace`.)
 
 Verify:
 ```bash
@@ -84,7 +85,17 @@ kubectl get namespaces
 
 ---
 
-## Step 2 — NGINX Ingress Controller
+## Step 2 — RBAC
+
+```bash
+kubectl apply -k k8s/base/rbac
+```
+
+Creates the `spark` ServiceAccount used by SparkApplication driver/executor pods. See [RBAC Summary](#rbac-summary) below for the full list including the driver-ingress-controller ServiceAccount.
+
+---
+
+## Step 3 — NGINX Ingress Controller
 
 Installed via Helm. Exposes services at `localhost:80` and `localhost:443`.
 
@@ -109,7 +120,7 @@ kubectl get svc -n ingress-nginx
 
 ---
 
-## Step 3 — Strimzi Operator
+## Step 4 — Strimzi Operator
 
 Strimzi manages Kafka clusters via CRDs. Installed with `kubectl apply` (not Helm).
 
@@ -136,7 +147,7 @@ kubectl get crd | grep kafka
 
 ---
 
-## Step 4 — Spark Operator
+## Step 5 — Spark Operator
 
 Installed via Helm. Manages `SparkApplication` CRDs.
 
@@ -160,12 +171,12 @@ kubectl get pods -n spark-operator
 
 ---
 
-## Step 5 — MinIO
+## Step 6 — MinIO
 
 S3-compatible object storage. Stores Iceberg table data, Spark checkpoints, and JARs.
 
 ```bash
-kubectl apply -f k8s/base/minio/
+kubectl apply -k k8s/base/minio
 ```
 
 **Buckets used:**
@@ -191,19 +202,19 @@ kubectl get svc -n minio
 
 ---
 
-## Step 6 — PostgreSQL
+## Step 7 — PostgreSQL
 
 Backend database for Hive Metastore. Stores table schema, partition info, and snapshot metadata.
 
 ```bash
-kubectl apply -f k8s/base/metastore/postgres.yaml
+kubectl apply -f k8s/base/metastore/postgre-setup.yaml
 ```
 
 **Connection details:**
 - Host: `postgres.metastore.svc.cluster.local:5432`
 - Database: `metastore`
 - User: `hive`
-- Password: `hive`
+- Password: `hivepassword`
 
 Verify:
 ```bash
@@ -211,9 +222,11 @@ kubectl get pods -n metastore
 # postgres-xxx   1/1   Running
 ```
 
+> **Why `apply -f` instead of `-k`?** Postgres must be `Ready` before the Hive Metastore schema-init Job in Step 8 runs, so the two are applied and waited on separately rather than as one Kustomize batch. `k8s/base/metastore/kustomization.yaml` still exists for anyone consuming this base directory as a whole (e.g. a future cloud overlay).
+
 ---
 
-## Step 7 — Hive Metastore
+## Step 8 — Hive Metastore
 
 Iceberg catalog backend. Spark connects here to resolve table names like `iceberg.bronze.raw_events`.
 
@@ -238,13 +251,20 @@ kubectl get pods -n metastore
 
 ---
 
-## Step 8 — Kafka Cluster (KRaft Mode)
+## Step 9 — Kafka Cluster + Topics (KRaft Mode)
 
 Kafka cluster managed by Strimzi. Uses KRaft (no Zookeeper). Two node pools: controller and broker.
 
 ```bash
-kubectl apply -f k8s/base/kafka/kafka-cluster.yaml
+kubectl apply -k k8s/base/kafka
 ```
+
+This applies both the `Kafka`/`KafkaNodePool` cluster resources and the `KafkaTopic` resources together — the Strimzi topic operator queues topic creation until the cluster is ready, so applying them at the same time is safe.
+
+**Topics:**
+| Topic | Partitions | Purpose |
+|-------|-----------|---------|
+| `raw-events` | 3 | Raw events from EventGenerator |
 
 Wait for Kafka to be ready (takes 2-3 minutes):
 ```bash
@@ -273,24 +293,7 @@ kubectl get kafka -n kafka
 kubectl get pods -n kafka
 # labuk-kafka-broker-0       1/1   Running
 # labuk-kafka-controller-1   1/1   Running
-```
 
----
-
-## Step 9 — Kafka Topics
-
-```bash
-kubectl apply -f k8s/base/kafka/kafka-topics.yaml
-```
-
-**Topics:**
-| Topic | Partitions | Purpose |
-|-------|-----------|---------|
-| `raw-events` | 3 | Raw events from EventGenerator |
-| `validated-events` | 3 | Validated events from Pekko Processor |
-
-Verify:
-```bash
 kubectl exec -it labuk-kafka-broker-0 -n kafka -- \
   bin/kafka-topics.sh \
   --bootstrap-server labuk-kafka-kafka-bootstrap:9092 \
@@ -299,60 +302,35 @@ kubectl exec -it labuk-kafka-broker-0 -n kafka -- \
 
 ---
 
-## Step 10 — Spark History Server
-
-Shows completed and running Spark job history. Reads event logs from MinIO.
+## Step 10 — Spark (config, history server, dashboard)
 
 ```bash
-kubectl apply -f k8s/base/spark-history/
+kubectl apply -k k8s/base/spark
 ```
 
-> **Resource note:** Scaled to 0 replicas locally to save memory.  
-> Scale up when needed: `kubectl scale deployment spark-history-server -n spark --replicas=1`
-
-**Access:** `http://localhost:32080` (NodePort 18080)
+This deploys three things together:
+- **`spark-defaults` ConfigMap** — Iceberg catalog + S3A settings shared by SparkApplications
+- **Spark History Server** — shows completed/running job history, reads event logs from MinIO. **Resource note:** scale to 0 replicas locally to save memory once it's up: `kubectl scale deployment spark-history-server -n spark --replicas=0`. Access at `http://localhost:32080` (NodePort 18080).
+- **Spark Dashboard** — custom Flask app showing job status and metrics. Access at `http://localhost:32050` (NodePort 5000).
 
 Verify:
 ```bash
 kubectl get deployment spark-history-server -n spark
-```
-
----
-
-## Step 11 — Spark Dashboard
-
-Custom Flask application showing Spark job status and metrics.
-
-```bash
-kubectl apply -f k8s/base/spark-platform/spark-dashboard.yaml
-```
-
-**Access:** `http://localhost:32050` (NodePort 5000)
-
-Verify:
-```bash
 kubectl get pods -n spark-platform
 # spark-dashboard-xxx   1/1   Running
 ```
 
 ---
 
-## Step 12 — Driver Ingress Controller
+## Step 11 — Driver Ingress Controller
 
 **This is a custom component.** A CronJob that runs every minute and automatically creates Ingress rules for active Spark driver pods. This allows access to each driver's Spark UI at a unique URL.
 
-Requires three resources applied in order:
-
 ```bash
-# 1. RBAC — allows the controller to read pods and create ingress rules
-kubectl apply -f k8s/base/spark/driver-ingress-rbac.yaml
-
-# 2. ConfigMap — contains the Python controller script
-kubectl apply -f k8s/base/spark/driver-ingress-configmap.yaml
-
-# 3. CronJob — runs the controller every minute
-kubectl apply -f k8s/base/spark/driver-ingress-cronjob.yaml
+kubectl apply -k k8s/base/ingress-controller/driver-ingress-controller
 ```
+
+This applies the ServiceAccount, ClusterRole/ClusterRoleBinding, CronJob, and headless Service in one go. The `controller.py` script is loaded into the CronJob's ConfigMap via a Kustomize `configMapGenerator` (sourced from `controller.py` next to the manifest), so the script only needs to be edited in one place.
 
 **How it works:**
 - Every minute, a pod starts running `controller.py`
@@ -373,21 +351,12 @@ kubectl get jobs -n spark
 
 ---
 
-## Step 13 — MinIO Buckets
+## Step 12 — MinIO Buckets
 
 After MinIO is running, create the required buckets:
 
 ```bash
-MINIO_POD=$(kubectl get pod -n minio -l app=minio -o jsonpath='{.items[0].metadata.name}')
-
-kubectl exec -n minio $MINIO_POD -- \
-  sh -c "
-    mc alias set local http://localhost:9000 sparkadmin sparkadmin123 && \
-    mc mb --ignore-existing local/warehouse && \
-    mc mb --ignore-existing local/checkpoints && \
-    mc mb --ignore-existing local/spark-jars && \
-    mc ls local/
-  "
+bash scripts/utils/create-minio-buckets.sh
 ```
 
 Expected output:
@@ -395,7 +364,10 @@ Expected output:
 [DATE]   0B warehouse/
 [DATE]   0B checkpoints/
 [DATE]   0B spark-jars/
+[DATE]   0B spark-jobs/
 ```
+
+`spark-jobs` is where the Spark Dashboard uploads job files and where the History Server writes event logs (`s3a://spark-jobs/event-logs`) — it's created here for idempotency, but the Dashboard also creates it itself on startup if missing.
 
 ---
 
@@ -407,7 +379,7 @@ Expected output:
 | `driver-ingress-controller` | `spark` | Used by the ingress CronJob |
 
 ```bash
-kubectl apply -f k8s/base/rbac/
+kubectl apply -k k8s/base/rbac
 ```
 
 ---
@@ -476,32 +448,10 @@ kubectl logs -f streaming-bronze-driver -n spark
 Remove everything cleanly:
 
 ```bash
-# Remove Spark jobs first
-kubectl delete sparkapplication --all -n spark
-
-# Remove application layer
-kubectl delete -f k8s/base/spark-platform/
-kubectl delete -f k8s/base/spark-history/
-kubectl delete -f k8s/base/spark/
-
-# Remove Kafka cluster
-kubectl delete kafka labuk-kafka -n kafka
-kubectl delete kafkatopic --all -n kafka
-
-# Remove core infra
-kubectl delete -f k8s/base/metastore/
-kubectl delete -f k8s/base/minio/
-
-# Remove Helm releases
-helm uninstall spark-operator -n spark-operator
-helm uninstall ingress-nginx -n ingress-nginx
-
-# Remove Strimzi
-kubectl delete -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
-
-# Remove namespaces (removes everything inside)
-kubectl delete namespace kafka minio metastore spark spark-operator spark-platform ingress-nginx
+bash scripts/teardown-local.sh
 ```
+
+This mirrors `bootstrap-local.sh` in reverse: SparkApplications → driver-ingress-controller → spark (config/history/dashboard) → Kafka → Hive Metastore → PostgreSQL → MinIO → RBAC → Helm releases (spark-operator, ingress-nginx) → Strimzi → namespaces (which removes anything left inside, including the `ingress-nginx` and `spark-operator` namespaces created by Helm).
 
 ---
 

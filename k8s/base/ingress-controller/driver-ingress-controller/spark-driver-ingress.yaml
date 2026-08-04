@@ -36,20 +36,6 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 
 ---
-# ConfigMap with the Python script
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: driver-ingress-controller
-  namespace: spark
-data:
-  controller.py: |
-    #!/usr/bin/env python3
-    """Auto-create Ingress for each Spark driver pod"""
-    
-    
-
----
 # CronJob that runs every 30 seconds
 apiVersion: batch/v1
 kind: CronJob

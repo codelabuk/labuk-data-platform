@@ -22,10 +22,14 @@ kubectl cluster-info
 
 # ─── 1. Namespaces ───────────────────────────────────────────────
 log "Creating namespaces..."
-kubectl apply -f k8s/base/namespaces/namespaces.yaml
+kubectl apply -k k8s/base/namespaces
 kubectl get namespaces
 
-# ─── 2. NGINX Ingress Controller ─────────────────────────────────
+# ─── 2. RBAC ──────────────────────────────────────────────────────
+log "Applying RBAC..."
+kubectl apply -k k8s/base/rbac
+
+# ─── 3. NGINX Ingress Controller ─────────────────────────────────
 log "Installing nginx ingress controller..."
 helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx 2>/dev/null || true
 helm repo update
@@ -37,13 +41,13 @@ helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
 
 wait_for_pods ingress-nginx "app.kubernetes.io/name=ingress-nginx"
 
-# ─── 3. Strimzi Operator ─────────────────────────────────────────
+# ─── 4. Strimzi Operator ─────────────────────────────────────────
 log "Installing Strimzi operator..."
 kubectl apply -f 'https://strimzi.io/install/latest?namespace=kafka' -n kafka
 
 wait_for_pods kafka "name=strimzi-cluster-operator"
 
-# ─── 4. Spark Operator ───────────────────────────────────────────
+# ─── 5. Spark Operator ───────────────────────────────────────────
 log "Installing Spark operator..."
 helm repo add spark-operator https://kubeflow.github.io/spark-operator 2>/dev/null || true
 helm repo update
@@ -56,27 +60,27 @@ helm upgrade --install spark-operator spark-operator/spark-operator \
 
 wait_for_pods spark-operator "app.kubernetes.io/name=spark-operator"
 
-# ─── 5. MinIO ────────────────────────────────────────────────────
+# ─── 6. MinIO ────────────────────────────────────────────────────
 log "Deploying MinIO..."
-kubectl apply -f k8s/base/minio/
+kubectl apply -k k8s/base/minio
 
 wait_for_pods minio "app=minio"
 
-# ─── 6. PostgreSQL ───────────────────────────────────────────────
+# ─── 7. PostgreSQL ───────────────────────────────────────────────
 log "Deploying PostgreSQL..."
-kubectl apply -f k8s/base/metastore/postgres.yaml
+kubectl apply -f k8s/base/metastore/postgre-setup.yaml
 
 wait_for_pods metastore "app=postgres"
 
-# ─── 7. Hive Metastore ───────────────────────────────────────────
+# ─── 8. Hive Metastore ───────────────────────────────────────────
 log "Deploying Hive Metastore..."
 kubectl apply -f k8s/base/metastore/hive-metastore.yaml
 
 wait_for_pods metastore "app=hive-metastore"
 
-# ─── 8. Kafka Cluster ────────────────────────────────────────────
-log "Deploying Kafka cluster (KRaft mode)..."
-kubectl apply -f k8s/base/kafka/kafka-cluster.yaml
+# ─── 9. Kafka Cluster + Topics ────────────────────────────────────
+log "Deploying Kafka cluster (KRaft mode) and topics..."
+kubectl apply -k k8s/base/kafka
 
 log "Waiting for Kafka to be ready (takes 2-3 minutes)..."
 kubectl wait kafka/labuk-kafka \
@@ -84,29 +88,18 @@ kubectl wait kafka/labuk-kafka \
   --timeout=300s \
   -n kafka
 
-# ─── 9. Kafka Topics ─────────────────────────────────────────────
-log "Creating Kafka topics..."
-kubectl apply -f k8s/base/kafka/kafka-topics.yaml
-
-# ─── 10. RBAC ────────────────────────────────────────────────────
-log "Applying RBAC..."
-kubectl apply -f k8s/base/rbac/
-
-# ─── 11. Spark History Server ────────────────────────────────────
-log "Deploying Spark History Server (scaled to 0 to save memory)..."
-kubectl apply -f k8s/base/spark/spark-history.yaml
-
-# ─── 12. Spark Dashboard ─────────────────────────────────────────
-log "Deploying Spark Dashboard..."
-kubectl apply -f k8s/base/spark/spark-dashboard.yaml
+# ─── 10. Spark (config, history server, dashboard) ────────────────
+log "Deploying Spark config, history server, and dashboard..."
+log "(History server is scaled to 0 replicas by default to save memory)"
+kubectl apply -k k8s/base/spark
 
 wait_for_pods spark-platform "app=spark-dashboard"
 
-# ─── 13. Driver Ingress Controller ───────────────────────────────
+# ─── 11. Driver Ingress Controller ───────────────────────────────
 log "Deploying Driver Ingress Controller..."
-kubectl apply -f k8s/base/ingress-controller/spark-driver-ingress.yaml
+kubectl apply -k k8s/base/ingress-controller/driver-ingress-controller
 
-# ─── 14. MinIO Buckets ───────────────────────────────────────────
+# ─── 12. MinIO Buckets ───────────────────────────────────────────
 log "Creating MinIO buckets..."
 bash scripts/utils/create-minio-buckets.sh
 
