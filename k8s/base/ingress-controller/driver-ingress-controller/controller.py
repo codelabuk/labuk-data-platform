@@ -4,7 +4,7 @@ from kubernetes import client, config
 NAMESPACE = os.getenv('SPARK_NAMESPACE', 'spark')
 INGRESS_CLASS = 'nginx'
 TLS_SECRET = 'driver-wildcard-tls'
-DOMAIN_SUFFIX = '.driver.codelabuk.dev'
+DOMAIN_SUFFIX = os.getenv('DOMAIN_SUFFIX', '.driver.codelabuk.dev')
 
 """Get all driver pods in namespace"""
 def get_driver_pods():

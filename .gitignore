@@ -21,3 +21,4 @@ jobs/scala/**/project/target/
 *.log
 
 .env
+.certs/

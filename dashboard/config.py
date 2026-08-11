@@ -11,6 +11,10 @@ MINIO_SECRET_KEY = os.environ.get("MINIO_SECRET_KEY", "sparkadmin123")
 MINIO_BUCKET = os.environ.get("MINIO_BUCKET", "spark-jobs")
 MINIO_EXTERNAL_URL = os.environ.get("MINIO_EXTERNAL_URL", "https://minio.codelabuk.dev/")
 
+# Suffix appended to a driver pod name to build its Spark UI ingress hostname,
+# e.g. "<pod-name>.driver.codelabuk.dev"
+DRIVER_DOMAIN_SUFFIX = os.environ.get("DRIVER_DOMAIN_SUFFIX", ".driver.codelabuk.dev")
+
 # Internal MinIO endpoint for Spark driver/executor pods
 MINIO_SPARK_ENDPOINT = os.environ.get(
     "MINIO_SPARK_ENDPOINT",

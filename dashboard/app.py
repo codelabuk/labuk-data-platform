@@ -9,7 +9,8 @@ import requests as req_lib
 
 from config import (SPARK_NAMESPACE, SPARK_HISTORY_URL, DASHBOARD_NAMESPACES,
                     SPARK_HISTORY_EXTERNAL_URL, MINIO_ENDPOINT, MINIO_ACCESS_KEY,
-                    MINIO_SECRET_KEY, MINIO_BUCKET, MINIO_SPARK_ENDPOINT)
+                    MINIO_SECRET_KEY, MINIO_BUCKET, MINIO_SPARK_ENDPOINT,
+                    DRIVER_DOMAIN_SUFFIX)
 
 app = Flask(__name__, template_folder='templates',
             static_folder='static')
@@ -279,7 +280,8 @@ def get_config():
         "defaultNamespace": SPARK_NAMESPACE,
         "historyServerUrl": SPARK_HISTORY_URL,
         "historyExternalUrl": SPARK_HISTORY_EXTERNAL_URL,
-        "namespaces": DASHBOARD_NAMESPACES
+        "namespaces": DASHBOARD_NAMESPACES,
+        "driverDomainSuffix": DRIVER_DOMAIN_SUFFIX
     })
 
 @app.route('/proxy/history/')

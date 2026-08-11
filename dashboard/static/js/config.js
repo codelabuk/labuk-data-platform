@@ -1,6 +1,7 @@
 const AppConfig = {
   defaultNamespace:   null,
   historyExternalUrl: null,
+  driverDomainSuffix: '.driver.codelabuk.dev',
 
   async load() {
     try {
@@ -9,6 +10,7 @@ const AppConfig = {
 
       this.defaultNamespace   = cfg.defaultNamespace;
       this.historyExternalUrl = cfg.historyExternalUrl;
+      this.driverDomainSuffix = cfg.driverDomainSuffix || this.driverDomainSuffix;
 
       const sel = document.getElementById('nsSelect');
       sel.innerHTML = '';

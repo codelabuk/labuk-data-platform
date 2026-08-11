@@ -64,6 +64,8 @@ spec:
               env:
                 - name: SPARK_NAMESPACE
                   value: "spark"
+                - name: DOMAIN_SUFFIX
+                  value: ".driver.codelabuk.dev"
               volumeMounts:
                 - name: scripts
                   mountPath: /scripts

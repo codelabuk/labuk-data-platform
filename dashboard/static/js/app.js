@@ -41,7 +41,7 @@ const PRESETS = {
 let liveMode = false;
 let currentLogPod = null;
 
-// ── navigation ─────────────────────────────────────────────────────────────
+
 function showPage(name, el) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -57,7 +57,7 @@ function setConn(state, msg) {
   txt.textContent = msg;
 }
 
-// ── namespace loader ───────────────────────────────────────────────────────
+
 async function loadNamespaces() {
   try {
     const res  = await fetch('/api/namespaces', { signal: AbortSignal.timeout(3000) });
@@ -74,7 +74,7 @@ async function loadNamespaces() {
   } catch (_) { /* keep current dropdown */ }
 }
 
-// ── refresh ────────────────────────────────────────────────────────────────
+
 async function refresh() {
   const ns = document.getElementById('nsSelect').value;
   try {
@@ -154,7 +154,7 @@ function fmtLabel(l) {
   return l['spark-role'] || l['app'] || Object.values(l)[0] || '—';
 }
 
-// ── render pods ────────────────────────────────────────────────────────────
+
 function renderPods(data) {
   const sparkJobs = data.sparkJobs    || (Array.isArray(data) ? data : []);
   const infra     = data.infrastructure || [];
@@ -181,7 +181,7 @@ function renderPodTable(tbodyId, pods, emptyMsg) {
 
     let sparkUIButton = '';
     if (isDriver) {
-      const uiUrl = `https://${p.name}.driver.codelabuk.dev`;
+      const uiUrl = `https://${p.name}${AppConfig.driverDomainSuffix}`;
       sparkUIButton = `<a href="${uiUrl}" target="_blank" class="btn btn-sm" style="margin-left:4px" title="Open Spark UI">UI</a>`;
     }
 
