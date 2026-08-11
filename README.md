@@ -2,6 +2,10 @@
 
 A self-hosted data platform for experimenting with Spark, Kafka, and Iceberg on Kubernetes — Kafka (Strimzi, KRaft mode) for streaming, Spark Operator for running jobs, Hive Metastore + PostgreSQL as the Iceberg catalog, MinIO as S3-compatible storage, and a custom dashboard for deploying and watching jobs. Runs locally on Docker Desktop Kubernetes today, with a cloud overlay reserved for later (`k8s/overlays/`).
 
+## Dashboard
+
+![Spark Dashboard](image/dashboard.jpg)
+
 ## Architecture
 
 ```
