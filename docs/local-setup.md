@@ -481,7 +481,6 @@ kubectl logs -f streaming-bronze-driver -n spark
 **Memory-saving tips:**
 - Keep Spark History Server scaled to 0 when not needed
 - Use `executor.instances: 0` (driver-only mode) for Spark jobs
-- Don't run EventGenerator and Bronze job simultaneously at first
 
 ---
 
