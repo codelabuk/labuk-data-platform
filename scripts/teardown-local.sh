@@ -18,6 +18,13 @@ kubectl delete -k k8s/base/spark 2>/dev/null || true
 log "Removing Kafka cluster and topics..."
 kubectl delete -k k8s/base/kafka 2>/dev/null || true
 
+
+log "Waiting for Kafka resources to finish deleting..."
+kubectl wait --for=delete kafkatopic --all -n kafka --timeout=120s >/dev/null 2>&1 || \
+  kubectl get kafkatopic -n kafka -o name 2>/dev/null | xargs -r kubectl patch -n kafka --type=merge -p '{"metadata":{"finalizers":[]}}'
+kubectl wait --for=delete kafka --all -n kafka --timeout=120s >/dev/null 2>&1 || \
+  kubectl get kafka -n kafka -o name 2>/dev/null | xargs -r kubectl patch -n kafka --type=merge -p '{"metadata":{"finalizers":[]}}'
+
 log "Removing Hive Metastore..."
 kubectl delete -f k8s/base/metastore/hive-metastore.yaml 2>/dev/null || true
 
