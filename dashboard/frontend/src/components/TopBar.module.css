@@ -1,0 +1,12 @@
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.875rem 1.5rem; border-bottom: 1px solid var(--border);
+  background: var(--bg2); gap: 12px; flex-shrink: 0;
+}
+.left { display: flex; align-items: center; gap: 12px; flex: 1; }
+.nsSelect {
+  font-size: 13px; padding: 6px 10px; border: 1px solid var(--border2);
+  border-radius: var(--radius); background: var(--bg3); color: var(--text);
+  outline: none; cursor: pointer;
+}
+.lastRefresh { font-size: 11px; color: var(--text3); font-family: monospace; }

@@ -16,6 +16,8 @@ jobs/scala/**/project/target/
 .idea/
 .vscode/
 
+dashboard/static/dist/
+
 .DS_Store
 
 *.log

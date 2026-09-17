@@ -1,0 +1,3 @@
+.shell { display: flex; min-height: 100vh; }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.content { flex: 1; padding: 1.5rem; overflow-y: auto; min-width: 0; }

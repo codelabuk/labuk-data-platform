@@ -1,0 +1,19 @@
+.sidebar {
+  width: var(--sidebar-w); min-width: var(--sidebar-w); flex-shrink: 0;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 1.25rem 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+.logo { padding: 0 1.25rem 1.25rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+.logoTitle { font-size: 15px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.logoSub { font-size: 11px; color: var(--text3); margin-top: 2px; font-family: monospace; white-space: nowrap; }
+.navSection { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; color: var(--text3); padding: 1rem 1.25rem 0.4rem; text-transform: uppercase; white-space: nowrap; }
+.navItem {
+  display: flex; align-items: center; gap: 10px; padding: 8px 1.25rem;
+  font-size: 13px; color: var(--text2); cursor: pointer; border-left: 2px solid transparent;
+  transition: all 0.15s; white-space: nowrap; text-decoration: none;
+}
+.navItem:hover { color: var(--text); background: var(--bg3); }
+.navItemActive { color: var(--blue); border-left-color: var(--blue); background: var(--blue-bg); font-weight: 500; }
+.navIcon { font-size: 15px; width: 18px; text-align: center; flex-shrink: 0; }
+.footer { margin-top: auto; padding: 1rem 1.25rem 0; border-top: 1px solid var(--border); }
